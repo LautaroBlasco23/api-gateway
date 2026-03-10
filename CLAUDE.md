@@ -1,0 +1,70 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+# Build
+go build -o gateway ./cmd/server
+
+# Run
+PORT=8080 ./gateway
+
+# Run all tests
+go test ./...
+
+# Run tests for a specific package
+go test ./internal/validation/...
+
+# Run a single test
+go test ./internal/validation/... -run TestValidateEmail
+
+# Lint (requires golangci-lint)
+golangci-lint run
+
+# Docker
+docker build -t api-gateway .
+docker-compose up --build
+```
+
+## Architecture
+
+The gateway is a **modular monolith** with a single-pass request pipeline. All state is in-memory and lost on restart — there is no persistence layer.
+
+### Request pipeline (`internal/gateway/handler.go`)
+
+Every proxied request flows through this sequence, each step gated by the service's feature flags:
+
+```
+CORS → Rate Limiter → Injection Filter → Endpoint Validation → Cache → Reverse Proxy
+```
+
+The body is read once with `io.ReadAll` at the start of `handler.proxy()` and restored via `io.NopCloser(bytes.NewReader(...))` before each feature that may consume it (injection filter, validator, proxy).
+
+### Service registry (`internal/registry/`)
+
+Backends self-register at runtime via `POST /register`. The registry stores services and endpoint validation rules in slices protected by `sync.RWMutex`. Route resolution uses **longest-prefix matching** — re-registering a service by name replaces it in-place.
+
+### Feature flags
+
+Each `Service` carries a `Features` struct. Features are checked directly in `handler.proxy()` — there is no middleware chain. Adding a new feature means adding a field to `Features` and a guarded block in the handler.
+
+### Validation (`internal/validation/`)
+
+`Validate()` dispatches on field type: non-file types parse the body as JSON; `file_*` types use `mime/multipart`. After multipart parsing the body is consumed — the handler restores it from `bodyBytes` before proxying.
+
+### Cache (`internal/features/cache/`)
+
+`ResponseRecorder` wraps `http.ResponseWriter` to capture status, headers, and body while simultaneously writing to the real response. The recorded result is stored under the key `METHOD:path?query` with a 30-second TTL. Only GET and HEAD are cached.
+
+### Rate limiter (`internal/features/ratelimiter/`)
+
+One `rate.Limiter` (10 r/s, burst 20) per `"service:ip"` key. All limiters are wiped every 5 minutes to prevent unbounded map growth.
+
+## Key Design Constraints
+
+- **Stateless across restarts**: all registered services and cached responses are in-memory. Backends must re-register on every gateway restart.
+- **`auth` feature flag exists but is not implemented** in V1 — the field is parsed and stored but no auth logic runs.
+- **File validation consumes the body**: `multipart.NewReader` reads from `r.Body`. The handler always restores `r.Body` from `bodyBytes` after validation.
+- Route matching is prefix-based, not exact. `/api` will match `/api/users`, `/api/products`, etc.

@@ -1,0 +1,14 @@
+# Binary
+gateway
+
+# Environment
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
