@@ -1,6 +1,14 @@
 version: "3.9"
 
 services:
+  echo-backend:
+    image: ealen/echo-server:latest
+    ports:
+      - "8081:80"
+    environment:
+      - PORT=80
+    restart: unless-stopped
+
   gateway:
     build: .
     ports:
@@ -8,3 +16,5 @@ services:
     environment:
       - PORT=8080
     restart: unless-stopped
+    depends_on:
+      - echo-backend
