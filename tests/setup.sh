@@ -2,10 +2,20 @@
 set -e
 
 GW="http://localhost:8080"
+MAX_RETRIES=60
 
-# Wait for gateway to be healthy
+# Wait for gateway HTTP server to be reachable (with timeout).
+# We just care that it accepts connections and returns *any* response.
 echo "Waiting for gateway..."
-until curl -sf -X POST "$GW/register" -o /dev/null --max-time 1 2>/dev/null; do
+attempt=1
+until curl -s "$GW/" -o /dev/null --max-time 1 2>/dev/null; do
+  if [ "$attempt" -ge "$MAX_RETRIES" ]; then
+    echo "Gateway did not become ready after ${MAX_RETRIES}s."
+    echo "You can inspect logs with: docker-compose logs gateway"
+    exit 1
+  fi
+  echo "  Gateway not ready yet (attempt ${attempt}/${MAX_RETRIES})..."
+  attempt=$((attempt + 1))
   sleep 1
 done
 

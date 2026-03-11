@@ -63,7 +63,7 @@ func (h *handler) registerEndpoint(w http.ResponseWriter, r *http.Request) {
 func (h *handler) proxy(w http.ResponseWriter, r *http.Request) {
 	svc := h.reg.FindByRoute(r.URL.Path)
 	if svc == nil {
-		http.Error(w, "no service registered for this route", http.StatusNotFound)
+		http.Error(w, "no service registered for this route", http.StatusBadRequest)
 		return
 	}
 

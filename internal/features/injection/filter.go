@@ -29,7 +29,24 @@ var dangerousPatterns = []string{
 func Filter(r *http.Request, body []byte) (bool, string) {
 	targets := []string{
 		r.URL.Path,
-		r.URL.RawQuery,
+	}
+
+	// Include raw query string as-is.
+	if r.URL.RawQuery != "" {
+		targets = append(targets, r.URL.RawQuery)
+	}
+
+	// Include decoded query parameter keys and values so URL-encoded payloads
+	// like "%3Cscript%3E" are inspected in their decoded form.
+	for key, values := range r.URL.Query() {
+		if key != "" {
+			targets = append(targets, key)
+		}
+		for _, v := range values {
+			if v != "" {
+				targets = append(targets, v)
+			}
+		}
 	}
 
 	for _, values := range r.Header {

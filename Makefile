@@ -1,4 +1,19 @@
-.PHONY: build run test lint docker-build up down setup smoke k6-smoke k6-load test-integration
+.PHONY: help build run test lint docker-build up down setup smoke k6-smoke k6-load test-integration
+
+help:
+	@echo "Available commands:"
+	@echo "  make build            Build the gateway binary"
+	@echo "  make run              Build and run the gateway on PORT=8080"
+	@echo "  make test             Run all Go tests"
+	@echo "  make lint             Run golangci-lint"
+	@echo "  make docker-build     Build the Docker image"
+	@echo "  make up               Start the stack with docker-compose"
+	@echo "  make down             Stop the stack with docker-compose"
+	@echo "  make setup            Run test setup script"
+	@echo "  make smoke            Run smoke tests"
+	@echo "  make k6-smoke         Run k6 smoke tests"
+	@echo "  make k6-load          Run k6 load tests"
+	@echo "  make test-integration Full integration test flow (up → setup → smoke → k6-smoke → down)"
 
 # ── Local ────────────────────────────────────────────────────────────────────
 
