@@ -113,22 +113,34 @@ _install-k6:
 			K6_VERSION=$$(curl -s https://api.github.com/repos/grafana/k6/releases/latest | grep "tag_name" | cut -d"\"" -f4 | cut -d"v" -f2); \
 			K6_URL="https://github.com/grafana/k6/releases/download/v$${K6_VERSION}/k6-v$${K6_VERSION}-linux-$${ARCH}.tar.gz"; \
 			echo "Downloading k6 from $$K6_URL"; \
+			rm -rf /tmp/k6_install; \
 			mkdir -p /tmp/k6_install; \
 			curl -L "$$K6_URL" | tar xz -C /tmp/k6_install; \
-			if sudo -n true 2>/dev/null; then \
-				sudo mv /tmp/k6_install/k6 /usr/local/bin/k6; \
-				sudo chmod +x /usr/local/bin/k6; \
+			K6_BIN=$$(find /tmp/k6_install -name "k6" -type f | head -1); \
+			if [ -z "$$K6_BIN" ]; then \
+				echo "✗ k6 binary not found in extracted archive"; \
+				exit 1; \
+			fi; \
+			if [ -w /usr/local/bin ]; then \
+				mv "$$K6_BIN" /usr/local/bin/k6; \
+				chmod +x /usr/local/bin/k6; \
 				rm -rf /tmp/k6_install; \
 			else \
 				echo ""; \
-				echo "✗ Unable to write to /usr/local/bin without password"; \
-				echo ""; \
-				echo "Options:"; \
-				echo "  1) Configure sudo to work without password prompt"; \
-				echo "  2) Manually move the binary: sudo mv /tmp/k6_install/k6 /usr/local/bin/k6"; \
-				echo "  3) Add $$HOME/.local/bin to your PATH and use:"; \
-				echo "     mkdir -p $$HOME/.local/bin && mv /tmp/k6_install/k6 $$HOME/.local/bin/"; \
-				exit 1; \
+				echo "Need sudo access to install to /usr/local/bin"; \
+				read -p "Use sudo to install? (y/n): " use_sudo; \
+				if [ "$$use_sudo" = "y" ] || [ "$$use_sudo" = "Y" ]; then \
+					sudo mv "$$K6_BIN" /usr/local/bin/k6; \
+					sudo chmod +x /usr/local/bin/k6; \
+					rm -rf /tmp/k6_install; \
+				else \
+					echo ""; \
+					echo "Alternative: install to your home directory"; \
+					echo "  mkdir -p $$HOME/.local/bin && mv $$K6_BIN $$HOME/.local/bin/"; \
+					echo "  Then add to ~/.bashrc or ~/.zshrc:"; \
+					echo "    export PATH=\"$$HOME/.local/bin:\$$PATH\""; \
+					exit 1; \
+				fi; \
 			fi; \
 		fi; \
 		if command -v k6 >/dev/null 2>&1; then \
