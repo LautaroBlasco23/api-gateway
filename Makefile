@@ -160,7 +160,7 @@ _run-local: build
 
 _docker-up:
 	@echo "Starting gateway with Docker..."
-	@docker-compose up --build -d
+	@docker-compose up -d
 
 _run-tests: _docker-up _setup-tests _smoke-tests _k6-smoke-tests _docker-down
 	@echo ""
@@ -176,14 +176,16 @@ _smoke-tests:
 
 _k6-smoke-tests:
 	@bash -c '\
+		echo ""; \
+		echo "Cooling down rate limiter..."; \
+		sleep 3; \
 		if command -v k6 >/dev/null 2>&1; then \
 			echo ""; \
 			echo "=== Running K6 Smoke Tests ==="; \
-			k6 run tests/k6/smoke.js; \
+			k6 run --throw tests/k6/smoke.js; \
 		else \
 			echo ""; \
 			echo "⚠ Skipping K6 tests (k6 not installed)"; \
-			echo "  Run: make install-tools to install k6"; \
 		fi \
 	'
 
