@@ -42,7 +42,7 @@ The body is read once with `io.ReadAll` at the start of `handler.proxy()` and re
 
 ### Service registry (`internal/registry/`)
 
-Backends self-register at runtime via `POST /register`. The registry stores services and endpoint validation rules in slices protected by `sync.RWMutex`. Route resolution uses **longest-prefix matching** — re-registering a service by name replaces it in-place.
+Backends self-register at runtime via `POST /register`. The registry stores services and endpoint validation rules in slices protected by `sync.RWMutex`. Route resolution uses **parameterized pattern matching** — segments like `{id}` in a registered route match any non-empty literal segment in the request path. When multiple patterns match, the one with the most literal (non-parameterized) segments wins (`specificity` score). Re-registering a service by name replaces it in-place.
 
 ### Feature flags
 
@@ -54,7 +54,7 @@ Each `Service` carries a `Features` struct. Features are checked directly in `ha
 
 ### Cache (`internal/features/cache/`)
 
-`ResponseRecorder` wraps `http.ResponseWriter` to capture status, headers, and body while simultaneously writing to the real response. The recorded result is stored under the key `METHOD:path?query` with a 30-second TTL. Only GET and HEAD are cached.
+`ResponseRecorder` wraps `http.ResponseWriter` to capture status, headers, and body while simultaneously writing to the real response. The recorded result is stored under the key `METHOD:pattern?query` (using the matched route pattern, not the literal path) with a 30-second TTL. This means `/api/users/123` and `/api/users/456` share the same cache entry when both match `/api/users/{id}`. Only GET and HEAD are cached.
 
 ### Rate limiter (`internal/features/ratelimiter/`)
 
@@ -62,7 +62,7 @@ One `rate.Limiter` (10 r/s, burst 20) per `"service:ip"` key. All limiters are w
 
 ## Key Design Constraints
 
-- **Stateless across restarts**: all registered services and cached responses are in-memory. Backends must re-register on every gateway restart.
+- **Persistent registry, in-memory cache**: service registrations and endpoint validation rules are saved to `registry.json` (via `REGISTRY_FILE` env var) on every write and loaded on startup. Cached responses are still in-memory only.
 - **`auth` feature flag exists but is not implemented** in V1 — the field is parsed and stored but no auth logic runs.
 - **File validation consumes the body**: `multipart.NewReader` reads from `r.Body`. The handler always restores `r.Body` from `bodyBytes` after validation.
-- Route matching is prefix-based, not exact. `/api` will match `/api/users`, `/api/products`, etc.
+- **Route matching is pattern-based**: segments in `{braces}` match any non-empty literal segment. `/api` does NOT match `/api/users` — routes must be registered explicitly (or with a `{param}` segment). `FindByRoute` and `FindEndpoint` both return a `RouteMatch` / params tuple.

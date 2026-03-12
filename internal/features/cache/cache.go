@@ -25,9 +25,15 @@ func New() *Cache {
 	return c
 }
 
-// Key generates a cache key from the request.
+// Key generates a cache key from the request using the literal path.
 func Key(r *http.Request) string {
 	return r.Method + ":" + r.URL.Path + "?" + r.URL.RawQuery
+}
+
+// KeyWithRoute generates a cache key using a route pattern instead of the literal path.
+// This ensures /api/users/123 and /api/users/456 share the same cache entry under /api/users/{id}.
+func KeyWithRoute(r *http.Request, route string) string {
+	return r.Method + ":" + route + "?" + r.URL.RawQuery
 }
 
 func (c *Cache) Get(key string) *CachedResponse {

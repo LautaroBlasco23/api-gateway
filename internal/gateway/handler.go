@@ -64,11 +64,12 @@ func (h *handler) registerEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) proxy(w http.ResponseWriter, r *http.Request) {
-	svc := h.reg.FindByRoute(r.URL.Path)
-	if svc == nil {
+	match := h.reg.FindByRoute(r.URL.Path)
+	if match == nil {
 		http.Error(w, "no service registered for this route", http.StatusBadRequest)
 		return
 	}
+	svc := match.Service
 
 	// Read body once so multiple features can inspect it.
 	var bodyBytes []byte
@@ -108,7 +109,7 @@ func (h *handler) proxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Endpoint-level input validation
-	ep := h.reg.FindEndpoint(r.URL.Path, r.Method)
+	ep, _ := h.reg.FindEndpoint(r.URL.Path, r.Method)
 	if ep != nil {
 		if err := validation.Validate(r, bodyBytes, ep.Validation); err != nil {
 			http.Error(w, "validation error: "+err.Error(), http.StatusBadRequest)
@@ -120,7 +121,7 @@ func (h *handler) proxy(w http.ResponseWriter, r *http.Request) {
 
 	// Cache (GET and HEAD only)
 	if svc.Features.Cache && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
-		key := cache.Key(r)
+		key := cache.KeyWithRoute(r, match.Route)
 		if cached := h.cache.Get(key); cached != nil {
 			cached.WriteTo(w)
 			return

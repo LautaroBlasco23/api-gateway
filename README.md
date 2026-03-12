@@ -44,7 +44,7 @@ curl -X POST http://localhost:8080/register \
 { "status": "registered", "service": "user-service" }
 ```
 
-After this, requests to `/api/users/*` and `/api/profiles/*` are proxied to `http://localhost:3000`.
+After this, requests to `/api/users` and `/api/profiles` (and any parameterized variants you register) are proxied to `http://localhost:3000`.
 
 ### Registration fields
 
@@ -52,7 +52,7 @@ After this, requests to `/api/users/*` and `/api/profiles/*` are proxied to `htt
 |---|---|---|---|
 | `name` | string | yes | Unique service identifier. Re-registering by name replaces the existing entry. |
 | `url` | string | yes | Backend base URL (e.g. `http://localhost:3000`). |
-| `routes` | string[] | yes | Path prefixes to match. Longest prefix wins across all services. |
+| `routes` | string[] | yes | Route patterns to match. Use `{param}` for dynamic segments (e.g. `/api/users/{id}`). More specific patterns (more literal segments) take priority. |
 | `features` | object | no | Feature flags — all default to `false`. |
 
 ---
@@ -89,7 +89,7 @@ Detected patterns: SQL injection (`union select`, `or 1=1`, `drop table`), XSS (
 
 ### `cache`
 
-Caches `GET` and `HEAD` responses for 30 seconds. Cache key is `METHOD:path?query`. On a cache hit the backend is bypassed entirely.
+Caches `GET` and `HEAD` responses for 30 seconds. Cache key is `METHOD:pattern?query`, where `pattern` is the matched route pattern (e.g. `/api/users/{id}`), not the literal path. This means `/api/users/123` and `/api/users/456` share the same cache entry. On a cache hit the backend is bypassed entirely.
 
 ---
 
@@ -152,7 +152,9 @@ Mixed requests (JSON fields + file uploads in the same multipart body) are suppo
 
 ## Route Matching
 
-Routes use **longest-prefix matching** across all registered services. A service registered at `/api/users` takes precedence over one at `/api` for any request starting with `/api/users`.
+Routes use **pattern matching**. Segments wrapped in `{braces}` match any non-empty path segment and capture its value (e.g. `/api/users/{id}` matches `/api/users/123`).
+
+When multiple patterns from different services match the same request, the one with more literal (non-parameterized) segments wins. For example, `/api/users/admin` beats `/api/users/{id}` for a request to `/api/users/admin`.
 
 ---
 
@@ -224,7 +226,7 @@ curl -X POST http://localhost:8080/api/products \
 
 - **JSON persistence.** Registered services and endpoint rules are saved to `registry.json` (configurable via `REGISTRY_FILE`) on every write. The file is loaded on startup — backends do not need to re-register after a restart. Cached responses are still in-memory only.
 - **Re-registering** a service by the same `name` replaces it in-place.
-- **Prefix matching, not exact.** A service at `/api` will match `/api/users`, `/api/products`, etc.
+- **Pattern matching, not prefix.** `/api` only matches `/api` exactly. To handle `/api/users` you must register `/api/users` (or `/api/{resource}` for dynamic segments).
 
 ---
 
@@ -242,7 +244,7 @@ golangci-lint run
 
 ## Testing
 
-This project contains **integration and load tests** (no unit tests). All tests require the gateway to be running.
+This project contains **unit tests** for core logic (e.g. route pattern matching) as well as **integration and load tests**. Integration and load tests require the gateway to be running.
 
 ### Smoke Tests (Shell Script)
 
