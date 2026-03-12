@@ -59,36 +59,33 @@ func (r *Registry) save() error {
 	return os.Rename(tmp, r.filePath)
 }
 
-func (r *Registry) Register(svc *Service) {
+// Register adds a new service to the registry.
+// Returns false if a service with the same name or URL already exists.
+func (r *Registry) Register(svc *Service) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for i, s := range r.services {
-		if s.Name == svc.Name {
-			r.services[i] = svc
-			_ = r.save()
-			return
+	for _, s := range r.services {
+		if s.Name == svc.Name || s.URL == svc.URL {
+			return false
 		}
 	}
 	r.services = append(r.services, svc)
 	_ = r.save()
+	return true
 }
 
-// FindByRoute returns the service whose route prefix best matches path.
-// Longest prefix wins.
+// FindByRoute returns the service with a route that exactly matches the path.
 func (r *Registry) FindByRoute(path string) *Service {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	var best *Service
-	bestLen := -1
 	for _, svc := range r.services {
 		for _, route := range svc.Routes {
-			if strings.HasPrefix(path, route) && len(route) > bestLen {
-				best = svc
-				bestLen = len(route)
+			if path == route {
+				return svc
 			}
 		}
 	}
-	return best
+	return nil
 }
 
 func (r *Registry) RegisterEndpoint(ep *EndpointValidation) {

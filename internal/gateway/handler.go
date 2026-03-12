@@ -38,7 +38,10 @@ func (h *handler) register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name, url and routes are required", http.StatusBadRequest)
 		return
 	}
-	h.reg.Register(&svc)
+	if !h.reg.Register(&svc) {
+		http.Error(w, `{"error":"service already registered"}`, http.StatusConflict)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"status": "registered", "service": svc.Name}) //nolint:errcheck
