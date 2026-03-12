@@ -5,28 +5,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Build
-go build -o gateway ./cmd/server
+# Start the gateway (choose: local or Docker, with live logs)
+make start
 
-# Run
-PORT=8080 ./gateway
+# Run all tests (shell smoke tests + k6 load tests)
+make test
 
-# Run all tests
-go test ./...
+# Install required tools (k6, checks Docker)
+make install-tools
 
-# Run tests for a specific package
-go test ./internal/validation/...
+# Build the binary
+make build
 
-# Run a single test
-go test ./internal/validation/... -run TestValidateEmail
+# Lint the code (requires golangci-lint)
+make lint
 
-# Lint (requires golangci-lint)
-golangci-lint run
-
-# Docker
-docker build -t api-gateway .
-docker-compose up --build
+# View all available commands
+make help
 ```
+
+See `Makefile` for internal commands (`_docker-up`, `_docker-down`, etc.).
 
 ## Architecture
 

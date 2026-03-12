@@ -236,18 +236,69 @@ curl -X POST http://localhost:8080/api/products \
 ## Development
 
 ```bash
-# Run all tests
-go test ./...
-
-# Run tests for a specific package
-go test ./internal/validation/...
-
-# Run a single test
-go test ./internal/validation/... -run TestValidateEmail
+# Build
+go build -o gateway ./cmd/server
 
 # Lint (requires golangci-lint)
 golangci-lint run
 ```
+
+---
+
+## Testing
+
+This project contains **integration and load tests** (no unit tests). All tests require the gateway to be running.
+
+### Smoke Tests (Shell Script)
+
+Quick functional validation of all major features via curl:
+
+```bash
+# Start gateway and test backend
+docker-compose up --build
+
+# Run smoke tests in another terminal
+cd tests && bash smoke.sh
+```
+
+Tests cover:
+- **Routing**: Request proxying to backend (200)
+- **CORS**: Preflight handling (204)
+- **Validation**: Valid and invalid payloads (200 vs 400)
+- **Injection filtering**: Malicious patterns blocked (400)
+- **Route registration**: Non-existent routes rejected (400)
+- **Rate limiting**: Rapid requests trigger 429
+
+### K6 Smoke Tests
+
+Same functional checks using the k6 load testing tool with a single virtual user:
+
+```bash
+k6 run tests/k6/smoke.js
+```
+
+Benefits: structured assertions, cleaner syntax, easier to extend.
+
+### K6 Load Tests
+
+Performance and reliability testing under sustained load:
+
+```bash
+k6 run tests/k6/load.js
+```
+
+Characteristics:
+- **Ramping scenario**: Gradually scales from 1 to 20 virtual users, sustains for 1 minute, then ramps down
+- **Performance thresholds**:
+  - 95% of requests must complete in <500ms
+  - <5% error rate (accepts both 200 and 429 as valid)
+- Detects performance degradation and ensures the gateway handles realistic traffic
+
+### Setup Script
+
+The `tests/setup.sh` script initializes the test environment by registering the test backend and configuring validation rules. It's called automatically by `docker-compose`.
+
+---
 
 ## Project Structure
 
