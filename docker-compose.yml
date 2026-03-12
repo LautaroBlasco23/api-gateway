@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   echo-backend:
     image: ealen/echo-server:latest
