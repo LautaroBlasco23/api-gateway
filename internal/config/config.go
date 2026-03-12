@@ -3,7 +3,8 @@ package config
 import "os"
 
 type Config struct {
-	Port string
+	Port         string
+	RegistryFile string
 }
 
 func Load() *Config {
@@ -11,5 +12,9 @@ func Load() *Config {
 	if port == "" {
 		port = "8080"
 	}
-	return &Config{Port: port}
+	registryFile := os.Getenv("REGISTRY_FILE")
+	if registryFile == "" {
+		registryFile = "registry.json"
+	}
+	return &Config{Port: port, RegistryFile: registryFile}
 }

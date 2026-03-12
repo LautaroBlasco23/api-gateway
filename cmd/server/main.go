@@ -11,7 +11,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-	reg := registry.New()
+	reg := registry.New(cfg.RegistryFile)
 	router := gateway.NewRouter(reg)
 
 	log.Printf("API Gateway listening on :%s", cfg.Port)

@@ -34,8 +34,7 @@ curl -X POST http://localhost:8080/register \
       "ratelimiter": true,
       "injection": true,
       "cors": true,
-      "cache": false,
-      "auth": false
+      "cache": false
     }
   }'
 ```
@@ -91,10 +90,6 @@ Detected patterns: SQL injection (`union select`, `or 1=1`, `drop table`), XSS (
 ### `cache`
 
 Caches `GET` and `HEAD` responses for 30 seconds. Cache key is `METHOD:path?query`. On a cache hit the backend is bypassed entirely.
-
-### `auth`
-
-> **Not implemented in V1.** The field is accepted and stored but no auth logic runs. Reserved for a future release.
 
 ---
 
@@ -221,14 +216,14 @@ curl -X POST http://localhost:8080/api/products \
 | Environment Variable | Default | Description |
 |---|---|---|
 | `PORT` | `8080` | Port the gateway listens on |
+| `REGISTRY_FILE` | `registry.json` | Path to the JSON file used for persisting registered services and endpoint rules |
 
 ---
 
 ## Important Notes
 
-- **No persistence.** All registered services and cached responses live in memory and are lost on restart. Backends must re-register every time the gateway starts.
+- **JSON persistence.** Registered services and endpoint rules are saved to `registry.json` (configurable via `REGISTRY_FILE`) on every write. The file is loaded on startup — backends do not need to re-register after a restart. Cached responses are still in-memory only.
 - **Re-registering** a service by the same `name` replaces it in-place.
-- **Auth is a placeholder.** The `auth` flag exists but does nothing in V1.
 - **Prefix matching, not exact.** A service at `/api` will match `/api/users`, `/api/products`, etc.
 
 ---

@@ -4,7 +4,6 @@ type Features struct {
 	RateLimiter bool `json:"ratelimiter"`
 	Injection   bool `json:"injection"`
 	CORS        bool `json:"cors"`
-	Auth        bool `json:"auth"`
 	Cache       bool `json:"cache"`
 }
 

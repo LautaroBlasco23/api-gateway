@@ -13,6 +13,8 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
+    volumes:
+      - ./data/registry.json:/app/registry.json
     restart: unless-stopped
     depends_on:
       - echo-backend
