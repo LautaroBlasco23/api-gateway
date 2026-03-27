@@ -95,10 +95,9 @@ POST http://api-gateway:8080/register/endpoint
   "route": "/api/users",
   "method": "POST",
   "validation": {
-    "email": "email",
-    "age": "number",
-    "name": "string",
-    "profile_picture": "file_image"
+    "email":    { "type": "email" },
+    "name":     { "type": "string" },
+    "role":     { "type": "enum", "values": ["admin", "editor", "viewer"], "required": false }
   }
 }
 ```
@@ -109,16 +108,32 @@ POST http://api-gateway:8080/register/endpoint
 |-------|------|-------------|
 | `route` | string | A route pattern (may include `{param}` segments). Must match one of the routes registered for your service. |
 | `method` | string | HTTP method (GET, POST, PUT, DELETE, PATCH, etc.) |
-| `validation` | object | Field-level validation rules. Key = field name, Value = validation type. |
+| `validation` | object | Field-level validation rules. Key = field name, Value = a `ValidationRule` object. |
+
+### ValidationRule object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | yes | Validation type (see table below). |
+| `required` | boolean | no | Whether the field must be present in the request body. Defaults to `true` when omitted. |
+| `values` | string[] | only for `enum` | Accepted string values (case-sensitive). Must be non-empty when `type` is `"enum"`. |
 
 ### Validation Types
 
 | Type | Description |
 |------|-------------|
 | `string` | Must be a string value in JSON body |
-| `number` | Must be a valid number (integer or float) |
+| `integer` | JSON number or numeric string |
 | `email` | Must be a valid email format |
-| `file_*` | File upload fields (use with multipart/form-data). Types: `file_image`, `file_pdf`, `file_text`, `file_document` |
+| `username` | 3–32 characters: letters, digits, `_`, `-` |
+| `password` | Minimum 8 characters |
+| `uuid` | Standard UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
+| `enum` | String value must exactly match one entry in `values` (case-sensitive) |
+| `file_png` | Multipart file with MIME type `image/png` |
+| `file_jpg` | Multipart file with MIME type `image/jpeg` |
+| `file_pdf` | Multipart file with MIME type `application/pdf` |
+
+> **Backward compatibility:** the old flat string format (`"field": "type"`) is still accepted and treated as a required field with that type.
 
 ### Examples
 
@@ -128,9 +143,21 @@ POST http://api-gateway:8080/register/endpoint
   "route": "/api/products",
   "method": "POST",
   "validation": {
-    "name": "string",
-    "price": "number",
-    "email": "email"
+    "name":     { "type": "string" },
+    "price":    { "type": "integer" },
+    "category": { "type": "enum", "values": ["electronics", "clothing", "food"] }
+  }
+}
+```
+
+**Optional enum field:**
+```json
+{
+  "route": "/api/orders",
+  "method": "POST",
+  "validation": {
+    "product_id": { "type": "uuid" },
+    "status":     { "type": "enum", "values": ["pending", "active", "cancelled"], "required": false }
   }
 }
 ```
@@ -141,8 +168,8 @@ POST http://api-gateway:8080/register/endpoint
   "route": "/api/upload",
   "method": "POST",
   "validation": {
-    "document": "file_pdf",
-    "thumbnail": "file_image"
+    "document":  { "type": "file_pdf" },
+    "thumbnail": { "type": "file_png", "required": false }
   }
 }
 ```
@@ -293,16 +320,17 @@ async function registerEndpointValidations(gatewayUrl) {
       route: '/api/users',
       method: 'POST',
       validation: {
-        email: 'email',
-        name: 'string'
+        email: { type: 'email' },
+        name:  { type: 'string' }
       }
     },
     {
       route: '/api/products',
       method: 'POST',
       validation: {
-        name: 'string',
-        price: 'number'
+        name:     { type: 'string' },
+        price:    { type: 'integer' },
+        category: { type: 'enum', values: ['electronics', 'clothing', 'food'], required: false }
       }
     }
   ];
@@ -390,8 +418,9 @@ def register_endpoint_validations(gateway_url):
             'route': '/api/users',
             'method': 'POST',
             'validation': {
-                'email': 'email',
-                'name': 'string'
+                'email': {'type': 'email'},
+                'name':  {'type': 'string'},
+                'role':  {'type': 'enum', 'values': ['admin', 'editor', 'viewer'], 'required': False}
             }
         }
     ]
@@ -583,7 +612,7 @@ curl -X POST http://api-gateway:8080/register/endpoint \
   -d '{
     "route": "/api/test",
     "method": "POST",
-    "validation": {"name": "string"}
+    "validation": {"name": {"type": "string"}}
   }'
 
 # Test proxying through the gateway

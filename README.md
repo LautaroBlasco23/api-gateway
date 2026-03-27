@@ -116,9 +116,9 @@ curl -X POST http://localhost:8080/register/endpoint \
     "route": "/api/users",
     "method": "POST",
     "validation": {
-      "email": "email",
-      "username": "username",
-      "password": "password"
+      "email":    { "type": "email" },
+      "username": { "type": "username" },
+      "password": { "type": "password" }
     }
   }'
 ```
@@ -128,9 +128,19 @@ curl -X POST http://localhost:8080/register/endpoint \
 { "status": "registered", "route": "/api/users" }
 ```
 
-From now on, any `POST /api/users` that is missing a field or has the wrong type gets a `400 Bad Request` with an error message — without touching your backend.
+From now on, any `POST /api/users` that is missing a required field or has the wrong type gets a `400 Bad Request` with an error message — without touching your backend.
 
 Re-registering the same `route` + `method` pair replaces the existing rules.
+
+### Validation rule fields
+
+Each entry in `validation` is an object with the following fields:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | string | yes | The validation type (see table below). |
+| `required` | boolean | no | Whether the field must be present in the request body. Defaults to `true` when omitted. |
+| `values` | string[] | only for `enum` | Accepted string values (case-sensitive). Must be non-empty when `type` is `"enum"`. |
 
 ### Supported validation types
 
@@ -142,11 +152,33 @@ Re-registering the same `route` + `method` pair replaces the existing rules.
 | `username` | 3–32 characters: letters, digits, `_`, `-` |
 | `password` | Minimum 8 characters |
 | `uuid` | Standard UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
+| `enum` | String value must exactly match one entry in `values` (case-sensitive) |
 | `file_png` | Multipart file with MIME type `image/png` |
 | `file_jpg` | Multipart file with MIME type `image/jpeg` |
 | `file_pdf` | Multipart file with MIME type `application/pdf` |
 
 Mixed requests (JSON fields + file uploads in the same multipart body) are supported.
+
+> **Backward compatibility:** the old flat string format (`"field": "type"`) is still accepted and treated as a required field with that type.
+
+### Example: optional enum field
+
+```bash
+curl -X POST http://localhost:8080/register/endpoint \
+  -H "Content-Type: application/json" \
+  -d '{
+    "route": "/api/orders",
+    "method": "POST",
+    "validation": {
+      "product_id": { "type": "uuid" },
+      "status": {
+        "type": "enum",
+        "values": ["pending", "active", "cancelled"],
+        "required": false
+      }
+    }
+  }'
+```
 
 ---
 
@@ -193,8 +225,8 @@ curl -X POST http://localhost:8080/register/endpoint \
     "route": "/api/products",
     "method": "POST",
     "validation": {
-      "name": "string",
-      "price": "integer"
+      "name":  { "type": "string" },
+      "price": { "type": "integer" }
     }
   }'
 ```

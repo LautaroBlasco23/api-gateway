@@ -52,6 +52,13 @@ Each `Service` carries a `Features` struct. Features are checked directly in `ha
 
 `Validate()` dispatches on field type: non-file types parse the body as JSON; `file_*` types use `mime/multipart`. After multipart parsing the body is consumed — the handler restores it from `bodyBytes` before proxying.
 
+Each field in `EndpointValidation.Validation` is a `ValidationRule` struct with three fields:
+- `type` (string): the validation type (`string`, `email`, `integer`, `uuid`, `username`, `password`, `enum`, `file_png`, `file_jpg`, `file_pdf`)
+- `required` (*bool): whether the field must be present; omitting it defaults to `true`
+- `values` ([]string): required when `type` is `"enum"` — the accepted string values (case-sensitive); registering an enum with empty `values` returns HTTP 400
+
+The old flat `map[string]string` format (`"field": "type"`) is still accepted via a custom `UnmarshalJSON` on `EndpointValidation` for backward compatibility. `null` values in the request body always fail type validation regardless of `required`.
+
 ### Cache (`internal/features/cache/`)
 
 `ResponseRecorder` wraps `http.ResponseWriter` to capture status, headers, and body while simultaneously writing to the real response. The recorded result is stored under the key `METHOD:pattern?query` (using the matched route pattern, not the literal path) with a 30-second TTL. This means `/api/users/123` and `/api/users/456` share the same cache entry when both match `/api/users/{id}`. Only GET and HEAD are cached.
