@@ -16,3 +16,6 @@
 # Registry persistence
 data/registry.json
 registry.json
+
+# Docs
+.docs/

@@ -124,15 +124,19 @@ func TestFindByRoute(t *testing.T) {
 func TestFindEndpoint(t *testing.T) {
 	reg := &Registry{}
 	reg.endpoints = []*EndpointValidation{
-		{Route: "/api/users", Method: "POST", Validation: map[string]string{"email": "email"}},
-		{Route: "/api/users/{id}", Method: "GET", Validation: map[string]string{"id": "string"}},
+		{Route: "/api/users", Method: "POST", Validation: map[string]ValidationRule{
+			"email": {Type: "email"},
+		}},
+		{Route: "/api/users/{id}", Method: "GET", Validation: map[string]ValidationRule{
+			"id": {Type: "string"},
+		}},
 	}
 
 	ep, params := reg.FindEndpoint("/api/users", "POST")
 	if ep == nil {
 		t.Fatal("expected endpoint for POST /api/users")
 	}
-	if ep.Validation["email"] != "email" {
+	if ep.Validation["email"].Type != "email" {
 		t.Errorf("unexpected validation: %v", ep.Validation)
 	}
 	if len(params) != 0 {

@@ -57,6 +57,13 @@ func (h *handler) registerEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "route and method are required", http.StatusBadRequest)
 		return
 	}
+	// Validate enum rules: values must be non-empty when type is "enum".
+	for field, rule := range ep.Validation {
+		if rule.Type == validation.TypeEnum && len(rule.Values) == 0 {
+			http.Error(w, "field "+field+": enum type requires a non-empty values list", http.StatusBadRequest)
+			return
+		}
+	}
 	h.reg.RegisterEndpoint(&ep)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

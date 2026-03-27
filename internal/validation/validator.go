@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"api-gateway/internal/registry"
 )
 
 var (
@@ -24,19 +26,19 @@ var (
 )
 
 // Validate checks the request body against the declared validation rules.
-func Validate(r *http.Request, body []byte, rules map[string]string) error {
+func Validate(r *http.Request, body []byte, rules map[string]registry.ValidationRule) error {
 	if len(rules) == 0 {
 		return nil
 	}
 
 	// Separate file and non-file rules.
-	fileRules := map[string]string{}
-	jsonRules := map[string]string{}
-	for field, typ := range rules {
-		if strings.HasPrefix(typ, "file_") {
-			fileRules[field] = typ
+	fileRules := map[string]registry.ValidationRule{}
+	jsonRules := map[string]registry.ValidationRule{}
+	for field, rule := range rules {
+		if strings.HasPrefix(rule.Type, "file_") {
+			fileRules[field] = rule
 		} else {
-			jsonRules[field] = typ
+			jsonRules[field] = rule
 		}
 	}
 
@@ -55,19 +57,37 @@ func Validate(r *http.Request, body []byte, rules map[string]string) error {
 	return nil
 }
 
-func validateJSON(body []byte, rules map[string]string) error {
+func validateJSON(body []byte, rules map[string]registry.ValidationRule) error {
 	var data map[string]any
 	if err := json.Unmarshal(body, &data); err != nil {
 		return fmt.Errorf("invalid JSON body")
 	}
 
-	for field, typ := range rules {
+	for field, rule := range rules {
 		val, ok := data[field]
 		if !ok {
-			return fmt.Errorf("missing required field: %s", field)
+			if rule.IsRequired() {
+				return fmt.Errorf("missing required field: %s", field)
+			}
+			continue // field is optional and absent -- skip
 		}
-		if err := validateField(field, val, typ); err != nil {
+		// A JSON null value is not a valid field value regardless of required flag.
+		// Optional only means the field can be absent, not that it can be null.
+		if val == nil {
+			return fmt.Errorf("field %q must not be null", field)
+		}
+		if err := validateField(field, val, rule.Type); err != nil {
 			return err
+		}
+		// Enum check: validate the value is in the allowed set.
+		if rule.Type == TypeEnum {
+			str, isStr := val.(string)
+			if !isStr {
+				return fmt.Errorf("field %q must be a string for enum validation", field)
+			}
+			if !contains(rule.Values, str) {
+				return fmt.Errorf("field %q must be one of %v", field, rule.Values)
+			}
 		}
 	}
 	return nil
@@ -110,11 +130,14 @@ func validateField(field string, val any, typ string) error {
 		if !isStr {
 			return fmt.Errorf("field %q must be a string", field)
 		}
+	case TypeEnum:
+		// Enum type validation (value membership) is handled in validateJSON
+		// because it requires access to rule.Values. Nothing to do here.
 	}
 	return nil
 }
 
-func validateFiles(r *http.Request, rules map[string]string) error {
+func validateFiles(r *http.Request, rules map[string]registry.ValidationRule) error {
 	ct := r.Header.Get("Content-Type")
 	mediaType, params, err := mime.ParseMediaType(ct)
 	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
@@ -136,8 +159,8 @@ func validateFiles(r *http.Request, rules map[string]string) error {
 		if formName == "" {
 			formName = part.FileName()
 		}
-		if _, ok := rules[formName]; ok {
-			expectedMIME := fileMIMEs[rules[formName]]
+		if rule, ok := rules[formName]; ok {
+			expectedMIME := fileMIMEs[rule.Type]
 			fileCT := part.Header.Get("Content-Type")
 			if fileCT == "" {
 				fileCT = "application/octet-stream"
@@ -150,10 +173,20 @@ func validateFiles(r *http.Request, rules map[string]string) error {
 		part.Close()
 	}
 
-	for field := range rules {
-		if !foundFields[field] {
+	for field, rule := range rules {
+		if !foundFields[field] && rule.IsRequired() {
 			return fmt.Errorf("missing required file field: %s", field)
 		}
 	}
 	return nil
+}
+
+// contains reports whether val is present in slice (case-sensitive).
+func contains(slice []string, val string) bool {
+	for _, s := range slice {
+		if s == val {
+			return true
+		}
+	}
+	return false
 }

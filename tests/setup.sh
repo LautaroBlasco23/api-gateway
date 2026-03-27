@@ -44,9 +44,9 @@ curl -sf -X POST "$GW/register/endpoint" \
     "route": "/echo/users",
     "method": "POST",
     "validation": {
-      "email": "email",
-      "username": "username",
-      "password": "password"
+      "email": {"type": "email"},
+      "username": {"type": "username"},
+      "password": {"type": "password"}
     }
   }'
 
